@@ -237,7 +237,8 @@ header h1 {
     background: #e0e0e0;
     padding: 1px;
     border-radius: 6px;
-    max-width: 900px;
+    width: 450px;
+    max-width: 450px;
     margin-left: auto;
     margin-right: auto;
 }
@@ -249,7 +250,7 @@ header h1 {
     align-items: center;
     justify-content: center;
     font-weight: bold;
-    font-size: 16px;
+    font-size: 8px;
     cursor: pointer;
     transition: all 0.2s;
     position: relative;
@@ -266,7 +267,9 @@ header h1 {
 .cell.empty {
     background: #fff3cd;
     border: 2px dashed #ffc107;
-    cursor: drop;
+    cursor: pointer; /* Cambiar a pointer para indicar que es clickeable */
+    -webkit-tap-highlight-color: transparent; /* Eliminar highlight en móvil */
+    touch-action: manipulation; /* Mejorar respuesta táctil */
 }
 
 .cell.filled {
@@ -339,7 +342,7 @@ header h1 {
     align-items: center;
     justify-content: center;
     font-weight: bold;
-    font-size: 16px;
+    font-size: 8px;
     cursor: grab;
     transition: all 0.2s;
     position: relative;
@@ -348,7 +351,13 @@ header h1 {
     color: #333 !important; /* Asegurar que el texto siempre sea visible */
     line-height: 1;
     width: 100%;
-    max-width: 90px;
+    max-width: 45px;
+    -webkit-tap-highlight-color: transparent; /* Eliminar highlight en móvil */
+    touch-action: manipulation; /* Mejorar respuesta táctil */
+}
+
+.piece:not(.used) {
+    cursor: pointer; /* Cambiar a pointer para indicar que es clickeable */
 }
 
 .piece:hover {
@@ -478,15 +487,16 @@ header h1 {
 
     .board {
         grid-template-columns: repeat(11, 1fr);
+        width: 100%;
         max-width: 100%;
     }
 
     .cell {
-        font-size: 13px;
+        font-size: 6.5px;
     }
 
     .piece {
-        font-size: 13px;
+        font-size: 6.5px;
     }
 
     .board-and-pieces {
@@ -511,8 +521,8 @@ header h1 {
     }
     
     .piece {
-        max-width: 50px;
-        font-size: 10px;
+        max-width: 25px;
+        font-size: 5px;
     }
     
     .countdown-text {

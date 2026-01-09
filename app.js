@@ -593,6 +593,8 @@ function createMultiplicationBoard() {
                 cell.addEventListener('dragover', handleDragOver);
                 cell.addEventListener('drop', handleDrop);
                 cell.addEventListener('dragleave', handleDragLeave);
+                // Agregar evento de click para selección de piezas
+                cell.addEventListener('click', handleCellClick);
             }
             
             board.appendChild(cell);
@@ -607,6 +609,40 @@ function createMultiplicationBoard() {
     
     // Actualizar tamaño de las piezas para que coincida con las celdas
     updatePiecesSize();
+    
+    // Ajustar tamaño de fuente según el tamaño de las celdas
+    adjustCellFontSize();
+}
+
+// Función para ajustar el tamaño de fuente de las celdas según su tamaño
+function adjustCellFontSize() {
+    const firstCell = board.querySelector('.cell:not(.header)');
+    if (firstCell) {
+        const cellRect = firstCell.getBoundingClientRect();
+        const cellSize = cellRect.width;
+        
+        // Calcular tamaño de fuente como porcentaje del tamaño de la celda
+        // Usar aproximadamente 40-50% del tamaño de la celda para buena legibilidad
+        // Con un mínimo de 10px y un máximo de 20px
+        let fontSize = cellSize * 0.45; // 45% del tamaño de la celda
+        
+        // Aplicar límites para asegurar legibilidad
+        if (fontSize < 10) {
+            fontSize = 10; // Mínimo 10px para legibilidad
+        } else if (fontSize > 20) {
+            fontSize = 20; // Máximo 20px para no desbordar
+        }
+        
+        // Aplicar el tamaño de fuente a todas las celdas
+        document.querySelectorAll('.cell').forEach(cell => {
+            cell.style.fontSize = `${fontSize}px`;
+        });
+        
+        // También ajustar el tamaño de fuente de las piezas para que coincida
+        document.querySelectorAll('.piece').forEach(piece => {
+            piece.style.fontSize = `${fontSize}px`;
+        });
+    }
 }
 
 // Función para actualizar el tamaño de las piezas para que coincida con las celdas
@@ -780,6 +816,7 @@ function renderPieces() {
         
         pieceEl.addEventListener('dragstart', handleDragStart);
         pieceEl.addEventListener('dragend', handleDragEnd);
+        pieceEl.addEventListener('click', handlePieceClick);
         
         piecesContainer.appendChild(pieceEl);
     });
@@ -787,6 +824,7 @@ function renderPieces() {
     // Actualizar tamaño de las piezas después de renderizarlas
     setTimeout(() => {
         updatePiecesSize();
+        adjustCellFontSize();
     }, 100);
 }
 
@@ -859,6 +897,7 @@ async function startNewGameWithConfig() {
 async function startNewGame() {
     gameState.gameActive = true;
     gameState.gameInProgress = false;
+    selectedPiece = null; // Resetear pieza seleccionada
     gameState.emptyCells = generateEmptyCells();
     gameState.placedPieces.clear();
     gameState.correctAnswers.clear();
@@ -946,6 +985,7 @@ async function startNewGame() {
 
 // Event handlers para drag & drop
 let draggedPiece = null;
+let selectedPiece = null; // Pieza seleccionada para click
 
 function handleDragStart(e) {
     if (!gameState.gameInProgress) {
@@ -1021,6 +1061,9 @@ async function handleDrop(e) {
         const currentCount = gameState.placedPieces.get(gameState.userId) || 0;
         gameState.placedPieces.set(gameState.userId, currentCount + 1);
         
+        // Reproducir sonido de éxito
+        playSuccessSound();
+        
         // Notificar movimiento a otros usuarios por broadcast
         if (gameChannel) {
             await gameChannel.send({
@@ -1056,6 +1099,9 @@ async function handleDrop(e) {
         setTimeout(() => {
             cell.style.animation = '';
         }, 300);
+        
+        // Reproducir sonido de error
+        playErrorSound();
     }
     
     cell.classList.remove('drag-over');
@@ -1099,6 +1145,7 @@ function handleRemoteGameStart({ emptyCells, pieces, correctAnswers, starterUser
     
     gameState.gameActive = true;
     gameState.gameInProgress = false;
+    selectedPiece = null; // Resetear pieza seleccionada
     
     // Usar EXACTAMENTE la misma configuración
     if (tableSize) gameState.tableSize = tableSize;
@@ -1150,6 +1197,7 @@ function handleRemoteGameStart({ emptyCells, pieces, correctAnswers, starterUser
     // Actualizar tamaño de piezas después de crear el tablero
     setTimeout(() => {
         updatePiecesSize();
+        adjustCellFontSize();
     }, 200);
     
     // Contador regresivo en modal
@@ -1201,13 +1249,199 @@ function checkGameComplete() {
     }
 }
 
-// Estilo adicional para shake animation
+// Funciones para generar sonidos
+function playSuccessSound() {
+    try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.value = 523.25; // Do
+        oscillator.type = 'sine';
+        
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.3);
+    } catch (e) {
+        console.log('No se pudo reproducir sonido de éxito:', e);
+    }
+}
+
+function playErrorSound() {
+    try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.value = 200; // Nota baja
+        oscillator.type = 'sawtooth';
+        
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.2);
+    } catch (e) {
+        console.log('No se pudo reproducir sonido de error:', e);
+    }
+}
+
+// Función para manejar click en piezas
+function handlePieceClick(e) {
+    if (!gameState.gameInProgress) return;
+    
+    const pieceEl = e.target.closest('.piece');
+    if (!pieceEl || pieceEl.classList.contains('used')) return;
+    
+    const pieceId = pieceEl.dataset.pieceId;
+    const piece = gameState.pieces.find(p => p.id === pieceId);
+    
+    if (!piece || piece.used) return;
+    
+    // Si ya hay una pieza seleccionada, deseleccionarla
+    if (selectedPiece) {
+        const prevPieceEl = document.querySelector(`[data-piece-id="${selectedPiece.id}"]`);
+        if (prevPieceEl) {
+            prevPieceEl.classList.remove('selected');
+        }
+    }
+    
+    // Seleccionar la nueva pieza
+    selectedPiece = {
+        id: pieceId,
+        value: parseInt(pieceEl.dataset.value),
+        isCorrect: pieceEl.dataset.isCorrect === 'true'
+    };
+    
+    pieceEl.classList.add('selected');
+}
+
+// Función para manejar click en celdas
+async function handleCellClick(e) {
+    if (!gameState.gameInProgress) return;
+    
+    const cell = e.target.closest('.cell');
+    if (!cell || !cell.classList.contains('empty') || cell.classList.contains('filled')) {
+        // Si hay una pieza seleccionada y se hace click en una celda incorrecta, deseleccionar
+        if (selectedPiece) {
+            const pieceEl = document.querySelector(`[data-piece-id="${selectedPiece.id}"]`);
+            if (pieceEl) {
+                pieceEl.classList.remove('selected');
+            }
+            selectedPiece = null;
+            playErrorSound();
+        }
+        return;
+    }
+    
+    // Si no hay pieza seleccionada, no hacer nada
+    if (!selectedPiece) return;
+    
+    const cellKey = cell.dataset.key;
+    const correctValue = gameState.correctAnswers.get(cellKey);
+    
+    // Validar si la pieza es correcta
+    if (selectedPiece.value === correctValue) {
+        // Guardar valores antes de deseleccionar
+        const pieceValue = selectedPiece.value;
+        const pieceId = selectedPiece.id;
+        
+        // Colocar pieza localmente
+        cell.classList.remove('empty');
+        cell.classList.add('filled');
+        cell.textContent = pieceValue;
+        cell.style.borderColor = gameState.userColor;
+        cell.style.background = gameState.userColor + '20';
+        cell.dataset.placedBy = gameState.userId;
+        
+        // Marcar pieza como usada
+        const piece = gameState.pieces.find(p => p.id === pieceId);
+        if (piece) {
+            piece.used = true;
+        }
+        
+        // Deseleccionar pieza
+        const pieceEl = document.querySelector(`[data-piece-id="${pieceId}"]`);
+        if (pieceEl) {
+            pieceEl.classList.remove('selected');
+        }
+        selectedPiece = null;
+        
+        // Actualizar contador de usuario
+        const currentCount = gameState.placedPieces.get(gameState.userId) || 0;
+        gameState.placedPieces.set(gameState.userId, currentCount + 1);
+        
+        // Reproducir sonido de éxito
+        playSuccessSound();
+        
+        // Notificar movimiento a otros usuarios por broadcast
+        if (gameChannel) {
+            await gameChannel.send({
+                type: 'broadcast',
+                event: 'piece_placed',
+                payload: {
+                    userId: gameState.userId,
+                    cellKey: cellKey,
+                    value: pieceValue,
+                    pieceId: pieceId
+                }
+            });
+
+            // Notificar actualización de puntuación
+            await gameChannel.send({
+                type: 'broadcast',
+                event: 'score_updated',
+                payload: {
+                    userId: gameState.userId,
+                    score: currentCount + 1
+                }
+            });
+        }
+        
+        updateUsersList();
+        renderPieces();
+        
+        // Verificar si el juego está completo
+        checkGameComplete();
+    } else {
+        // Pieza incorrecta, deseleccionar y reproducir sonido de error
+        const pieceEl = document.querySelector(`[data-piece-id="${selectedPiece.id}"]`);
+        if (pieceEl) {
+            pieceEl.classList.remove('selected');
+        }
+        selectedPiece = null;
+        
+        // Hacer vibrar la celda
+        cell.style.animation = 'shake 0.3s';
+        setTimeout(() => {
+            cell.style.animation = '';
+        }, 300);
+        
+        playErrorSound();
+    }
+}
+
+// Estilo adicional para shake animation y pieza seleccionada
 const style = document.createElement('style');
 style.textContent = `
     @keyframes shake {
         0%, 100% { transform: translateX(0); }
         25% { transform: translateX(-10px); }
         75% { transform: translateX(10px); }
+    }
+    .piece.selected {
+        transform: scale(1.15);
+        box-shadow: 0 0 15px rgba(102, 126, 234, 0.8);
+        border-width: 3px;
+        z-index: 100;
     }
 `;
 document.head.appendChild(style);
